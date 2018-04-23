@@ -81,9 +81,15 @@ func main() {
 			i += 1
 			if i >= 60 { // Reread full list every 60 iterations
 				i = 0
+				// and refresh the client as well
+				client, err = cfclient.NewClient(c)
+				if err != nil {
+					fmt.Printf("error refreshing client\n")
+					os.Exit(1)
+				}
 				apps, _ = client.ListAppsByQuery(q)
 			}
-			fmt.Printf("Fetching stats of %d apps\n", len(apps))
+			fmt.Printf("fetching stats of %d apps\n", len(apps))
 			for _, app := range apps {
 				if app.Guid == appEnv.AppID { // Skip self
 					continue

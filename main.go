@@ -149,16 +149,13 @@ func monitor(ch chan config) {
 		select {
 		case cfg = <-ch:
 			// Configure
-			if loggedIn {
-				fmt.Printf("Already logged in. Ignoring new config")
-				continue
-			}
 			fmt.Println("Logging in after receiving configuration")
-			client, err := cfclient.NewClient(&cfg.Config)
+			newClient, err := cfclient.NewClient(&cfg.Config)
 			if err != nil {
 				fmt.Printf("Error logging in: %v", err)
 				continue
 			}
+			client = newClient
 			fmt.Printf("Fetching apps in space: %s\n", cfg.SpaceID)
 			q := url.Values{}
 			q.Add("q", fmt.Sprintf("space_guid:%s", cfg.SpaceID))

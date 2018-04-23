@@ -152,14 +152,14 @@ func monitor(ch chan config) {
 			fmt.Println("Logging in after receiving configuration")
 			newClient, err := cfclient.NewClient(&cfg.Config)
 			if err != nil {
-				fmt.Printf("Error logging in: %v", err)
+				fmt.Printf("Error logging in: %v\n", err)
 				continue
 			}
 			client = newClient
 			fmt.Printf("Fetching apps in space: %s\n", cfg.SpaceID)
 			q := url.Values{}
 			q.Add("q", fmt.Sprintf("space_guid:%s", cfg.SpaceID))
-			apps, _ := client.ListAppsByQuery(q)
+			apps, _ = client.ListAppsByQuery(q)
 			app := apps[0]
 			app, _ = client.GetAppByGuid(app.Guid)
 			space, _ := app.Space()
@@ -175,7 +175,7 @@ func monitor(ch chan config) {
 			fmt.Println("Refreshing login")
 			newClient, err := cfclient.NewClient(&cfg.Config)
 			if err != nil {
-				fmt.Printf("Error logging in: %v", err)
+				fmt.Printf("Error refreshing login: %v\n", err)
 				loggedIn = false
 				continue
 			}

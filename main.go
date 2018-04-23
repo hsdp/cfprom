@@ -5,6 +5,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -41,70 +42,165 @@ func init() {
 	prometheus.MustRegister(memGauge)
 }
 
+type config struct {
+	cfclient.Config
+	SpaceID string
+	AppID   string
+}
+
+type bootstrapRequest struct {
+	Password string `json:"password"`
+}
+
+type bootstrapResponse struct {
+	Status string `json:"status"`
+}
+
 func main() {
 	flag.Parse()
 
-	c := &cfclient.Config{
-		ApiAddress: os.Getenv("CF_API"),
-		Username:   os.Getenv("CF_USERNAME"),
-		Password:   os.Getenv("CF_PASSWORD"),
+	c := config{
+		cfclient.Config{
+			ApiAddress: os.Getenv("CF_API"),
+			Username:   os.Getenv("CF_USERNAME"),
+			Password:   os.Getenv("CF_PASSWORD"),
+		},
+		"",
+		"",
 	}
-	fmt.Println("Logging in")
-	client, err := cfclient.NewClient(c)
-	if err != nil {
-		fmt.Printf("CF Client error: %s\n", err.Error())
-		return
-	}
-
 	appEnv, err := cfenv.Current()
-
 	if err != nil {
 		fmt.Printf("Not running in CF. Exiting..\n")
 		return
 	}
+	c.AppID = appEnv.AppID
+	c.SpaceID = appEnv.SpaceID
 
-	fmt.Printf("Fetching apps in space: %s\n", appEnv.SpaceID)
+	ch := make(chan config)
 
-	q := url.Values{}
-	q.Add("q", fmt.Sprintf("space_guid:%s", appEnv.SpaceID))
-	apps, _ := client.ListAppsByQuery(q)
+	go monitor(ch)
 
-	app := apps[0]
+	ch <- c // Initial config
 
-	app, _ = client.GetAppByGuid(app.Guid)
-	space, _ := app.Space()
-	org, _ := space.Org()
+	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/bootstrap", bootstrapHandler(ch))
+	log.Fatal(http.ListenAndServe(*addr, nil))
+}
 
-	go func() {
-		var i = 0
-		for {
-			i += 1
-			if i >= 60 { // Reread full list every 60 iterations
-				i = 0
-				// and refresh the client as well
-				client, err = cfclient.NewClient(c)
-				if err != nil {
-					fmt.Printf("error refreshing client\n")
-					os.Exit(1)
-				}
-				apps, _ = client.ListAppsByQuery(q)
+func bootstrapHandler(ch chan config) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		var b bootstrapRequest
+		var resp bootstrapResponse
+
+		decoder := json.NewDecoder(req.Body)
+		err := decoder.Decode(&b)
+		defer req.Body.Close()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// Reconfigure
+		if b.Password != "" {
+			c := config{
+				cfclient.Config{
+					ApiAddress: os.Getenv("CF_API"),
+					Username:   os.Getenv("CF_USERNAME"),
+					Password:   b.Password,
+				},
+				"",
+				"",
 			}
-			fmt.Printf("fetching stats of %d apps\n", len(apps))
+			appEnv, err := cfenv.Current()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			c.AppID = appEnv.AppID
+			c.SpaceID = appEnv.SpaceID
+
+			ch <- c // Magic
+
+			resp.Status = "OK"
+		} else {
+			resp.Status = "ERROR: missing password"
+		}
+		js, err := json.Marshal(resp)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(js)
+	})
+}
+
+func monitor(ch chan config) {
+	var loggedIn = false
+	var client *cfclient.Client
+	var apps []cfclient.App
+	var cfg config
+	var spaceName = ""
+	var orgName = ""
+
+	check := time.NewTicker(time.Second * 15)
+	refresh := time.NewTicker(time.Second * 15 * 60)
+
+	for {
+		select {
+		case cfg = <-ch:
+			// Configure
+			if loggedIn {
+				fmt.Printf("Already logged in. Ignoring new config")
+				continue
+			}
+			fmt.Println("Logging in after receiving configuration")
+			client, err := cfclient.NewClient(&cfg.Config)
+			if err != nil {
+				fmt.Printf("Error logging in: %v", err)
+				continue
+			}
+			fmt.Printf("Fetching apps in space: %s\n", cfg.SpaceID)
+			q := url.Values{}
+			q.Add("q", fmt.Sprintf("space_guid:%s", cfg.SpaceID))
+			apps, _ := client.ListAppsByQuery(q)
+			app := apps[0]
+			app, _ = client.GetAppByGuid(app.Guid)
+			space, _ := app.Space()
+			org, _ := space.Org()
+			spaceName = space.Name
+			orgName = org.Name
+			loggedIn = true
+		case <-refresh.C:
+			if cfg.Config.Password == "" {
+				fmt.Println("No configuration available during refresh")
+				continue
+			}
+			fmt.Println("Refreshing login")
+			newClient, err := cfclient.NewClient(&cfg.Config)
+			if err != nil {
+				fmt.Printf("Error logging in: %v", err)
+				loggedIn = false
+				continue
+			}
+			client = newClient
+			q := url.Values{}
+			q.Add("q", fmt.Sprintf("space_guid:%s", cfg.SpaceID))
+			apps, _ = client.ListAppsByQuery(q)
+		case <-check.C:
+			if !loggedIn {
+				continue
+			}
+			fmt.Printf("Fetching stats of %d apps\n", len(apps))
 			for _, app := range apps {
-				if app.Guid == appEnv.AppID { // Skip self
+				if app.Guid == cfg.AppID { // Skip self
 					continue
 				}
 				stats, _ := client.GetAppStats(app.Guid)
 				for i, s := range stats {
-					cpuGauge.WithLabelValues(org.Name, space.Name, app.Name, i).Set(s.Stats.Usage.CPU * 100)
-					memGauge.WithLabelValues(org.Name, space.Name, app.Name, i).Set(float64(s.Stats.Usage.Mem))
+					cpuGauge.WithLabelValues(orgName, spaceName, app.Name, i).Set(s.Stats.Usage.CPU * 100)
+					memGauge.WithLabelValues(orgName, spaceName, app.Name, i).Set(float64(s.Stats.Usage.Mem))
 				}
 			}
-			time.Sleep(time.Duration(15 * time.Second))
 		}
-
-	}()
-
-	http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(*addr, nil))
+	}
 }

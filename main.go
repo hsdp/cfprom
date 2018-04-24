@@ -147,7 +147,7 @@ func monitor(ch chan config) {
 
 	for {
 		select {
-		case cfg = <-ch:
+		case newConfig := <-ch:
 			// Configure
 			fmt.Println("Logging in after receiving configuration")
 			newClient, err := cfclient.NewClient(&cfg.Config)
@@ -166,6 +166,7 @@ func monitor(ch chan config) {
 			org, _ := space.Org()
 			spaceName = space.Name
 			orgName = org.Name
+			cfg = newConfig
 			loggedIn = true
 		case <-refresh.C:
 			if cfg.Config.Password == "" {

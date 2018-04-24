@@ -117,7 +117,6 @@ func bootstrapHandler(ch chan config) http.Handler {
 			}
 			c.AppID = appEnv.AppID
 			c.SpaceID = appEnv.SpaceID
-
 			ch <- c // Magic
 
 			resp.Status = "OK"
@@ -150,12 +149,13 @@ func monitor(ch chan config) {
 		case newConfig := <-ch:
 			// Configure
 			fmt.Println("Logging in after receiving configuration")
-			newClient, err := cfclient.NewClient(&cfg.Config)
+			newClient, err := cfclient.NewClient(&newConfig.Config)
 			if err != nil {
 				fmt.Printf("Error logging in: %v\n", err)
 				continue
 			}
 			client = newClient
+			cfg = newConfig
 			fmt.Printf("Fetching apps in space: %s\n", cfg.SpaceID)
 			q := url.Values{}
 			q.Add("q", fmt.Sprintf("space_guid:%s", cfg.SpaceID))
@@ -166,7 +166,6 @@ func monitor(ch chan config) {
 			org, _ := space.Org()
 			spaceName = space.Name
 			orgName = org.Name
-			cfg = newConfig
 			loggedIn = true
 		case <-refresh.C:
 			if cfg.Config.Password == "" {

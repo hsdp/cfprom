@@ -12,19 +12,18 @@ The following environment variables are used
 
 | Variable |  Required | Description |
 |----------|-----------|-------------|
-| CF\_API  | Y         | The Cloudfoundry API endpoint |
-| CF\_USERNAME | Y     | The CF login to use |
-| CF\_PASSWORD | N     | The CF password to use. See bootstrapping |
+| CF\_USERNAME | N     | The CF login to use |
+| CF\_PASSWORD | N     | The CF password to use |
 
 ## Bootstrapping
 
-If you do not wish to add `CF_PASSWORD` to the environment you can bootstrap cfprom by posting the password to the `/bootstrap` endpoint:
+If you do not wish to add `CF_USERNAME` and/or `CF_PASSWORD` to the environment you can bootstrap cfprom by posting the username and password to the `/bootstrap` endpoint:
 
 ```
-curl -X POST https://cfprom.<your_cf_domain>/bootstrap -d '{"password":"SuperS3cret"}'
+curl -X POST https://cfprom.<your_cf_domain>/bootstrap -d '{"username":"admin","password":"SuperS3cret"}'
 ```
 
-Only after sending the correct password will cfprom be able to start collecting metrics. Note that this a tradeoff between security and convenience. You will have to bootstrap again if cfprom gets restarted or restaged for whatever reason.
+Only after sending the correct credentials will cfprom be able to start collecting metrics. Note that this a tradeoff between security and convenience. You will have to bootstrap again if cfprom gets restarted or restaged for whatever reason.
 
 ## License
 

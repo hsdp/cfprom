@@ -49,6 +49,7 @@ type config struct {
 }
 
 type bootstrapRequest struct {
+	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
@@ -61,7 +62,7 @@ func main() {
 
 	c := config{
 		cfclient.Config{
-			ApiAddress: os.Getenv("CF_API"),
+			ApiAddress: getCFAPI(),
 			Username:   os.Getenv("CF_USERNAME"),
 			Password:   os.Getenv("CF_PASSWORD"),
 		},
@@ -87,6 +88,23 @@ func main() {
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
+func (r *bootstrapRequest) valid() bool {
+	return r.Username != "" && r.Password != ""
+}
+
+func getCFAPI() string {
+	CFAPI := os.Getenv("CF_API")
+	if CFAPI != "" {
+		return CFAPI
+	}
+	appEnv, err := cfenv.Current()
+	if err != nil {
+		return cfclient.DefaultConfig().ApiAddress
+	}
+	return appEnv.CFAPI
+
+}
+
 func bootstrapHandler(ch chan config) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		var b bootstrapRequest
@@ -100,11 +118,11 @@ func bootstrapHandler(ch chan config) http.Handler {
 			return
 		}
 		// Reconfigure
-		if b.Password != "" {
+		if b.valid() {
 			c := config{
 				cfclient.Config{
-					ApiAddress: os.Getenv("CF_API"),
-					Username:   os.Getenv("CF_USERNAME"),
+					ApiAddress: getCFAPI(),
+					Username:   b.Username,
 					Password:   b.Password,
 				},
 				"",
@@ -121,7 +139,7 @@ func bootstrapHandler(ch chan config) http.Handler {
 
 			resp.Status = "OK"
 		} else {
-			resp.Status = "ERROR: missing password"
+			resp.Status = "ERROR: missing username an/or password"
 		}
 		js, err := json.Marshal(resp)
 		if err != nil {

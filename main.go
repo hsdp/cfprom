@@ -28,13 +28,13 @@ var (
 			Name: "cpu_usage",
 			Help: "CPU usage",
 		},
-		[]string{"org", "space", "app", "instance"})
+		[]string{"org", "space", "app", "instance_index"})
 	memGauge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "mem_usage",
 			Help: "Memory usage",
 		},
-		[]string{"org", "space", "app", "instance"})
+		[]string{"org", "space", "app", "instance_index"})
 )
 
 func init() {

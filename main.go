@@ -176,7 +176,6 @@ func monitor(ch chan config) {
 			newClient, err := cfclient.NewClient(&cfg.Config)
 			if err != nil {
 				fmt.Printf("Error refreshing login: %v\n", err)
-				loggedIn = false
 				continue
 			}
 			client = newClient

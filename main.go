@@ -137,7 +137,7 @@ func monitor(ch chan config) {
 	var loggedIn = false
 	var client *cfclient.Client
 	var apps []cfclient.App
-	var cfg config
+	var activeConfig config
 	var spaceName = ""
 	var orgName = ""
 
@@ -155,10 +155,10 @@ func monitor(ch chan config) {
 				continue
 			}
 			client = newClient
-			cfg = newConfig
-			fmt.Printf("Fetching apps in space: %s\n", cfg.SpaceID)
+			activeConfig = newConfig
+			fmt.Printf("Fetching apps in space: %s\n", activeConfig.SpaceID)
 			q := url.Values{}
-			q.Add("q", fmt.Sprintf("space_guid:%s", cfg.SpaceID))
+			q.Add("q", fmt.Sprintf("space_guid:%s", activeConfig.SpaceID))
 			apps, _ = client.ListAppsByQuery(q)
 			app := apps[0]
 			app, _ = client.GetAppByGuid(app.Guid)
@@ -168,19 +168,19 @@ func monitor(ch chan config) {
 			orgName = org.Name
 			loggedIn = true
 		case <-refresh.C:
-			if cfg.Config.Password == "" {
+			if activeConfig.Config.Password == "" {
 				fmt.Println("No configuration available during refresh")
 				continue
 			}
 			fmt.Println("Refreshing login")
-			newClient, err := cfclient.NewClient(&cfg.Config)
+			newClient, err := cfclient.NewClient(&activeConfig.Config)
 			if err != nil {
 				fmt.Printf("Error refreshing login: %v\n", err)
 				continue
 			}
 			client = newClient
 			q := url.Values{}
-			q.Add("q", fmt.Sprintf("space_guid:%s", cfg.SpaceID))
+			q.Add("q", fmt.Sprintf("space_guid:%s", activeConfig.SpaceID))
 			apps, _ = client.ListAppsByQuery(q)
 		case <-check.C:
 			if !loggedIn {
@@ -188,7 +188,7 @@ func monitor(ch chan config) {
 			}
 			fmt.Printf("Fetching stats of %d apps\n", len(apps))
 			for _, app := range apps {
-				if app.Guid == cfg.AppID { // Skip self
+				if app.Guid == activeConfig.AppID { // Skip self
 					continue
 				}
 				stats, _ := client.GetAppStats(app.Guid)

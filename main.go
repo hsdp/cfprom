@@ -204,7 +204,7 @@ func monitor(ch chan config) {
 			if !loggedIn {
 				continue
 			}
-			fmt.Printf("Fetching stats of %d apps\n", len(apps))
+			start := time.Now()
 			for _, app := range apps {
 				if app.Guid == activeConfig.AppID { // Skip self
 					continue
@@ -215,6 +215,7 @@ func monitor(ch chan config) {
 					memGauge.WithLabelValues(orgName, spaceName, app.Name, i).Set(float64(s.Stats.Usage.Mem))
 				}
 			}
+			fmt.Printf("Fetching stats of %d apps took %s\n", len(apps), time.Since(start))
 		}
 	}
 }

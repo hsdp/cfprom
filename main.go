@@ -54,7 +54,8 @@ type bootstrapRequest struct {
 }
 
 type bootstrapResponse struct {
-	Status string `json:"status"`
+	Boostrapped bool   `json:"bootstrapped"`
+	Status      string `json:"status"`
 }
 
 func main() {
@@ -106,10 +107,24 @@ func getCFAPI() string {
 }
 
 func bootstrapHandler(ch chan config) http.Handler {
+	var bootstrapped = false
+
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		var b bootstrapRequest
 		var resp bootstrapResponse
 
+		if req.Method == http.MethodGet {
+			resp.Boostrapped = bootstrapped
+			resp.Status = "OK"
+			js, err := json.Marshal(resp)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(js)
+			return
+		}
 		decoder := json.NewDecoder(req.Body)
 		err := decoder.Decode(&b)
 		defer req.Body.Close()
@@ -136,7 +151,7 @@ func bootstrapHandler(ch chan config) http.Handler {
 			c.AppID = appEnv.AppID
 			c.SpaceID = appEnv.SpaceID
 			ch <- c // Magic
-
+			bootstrapped = true
 			resp.Status = "OK"
 		} else {
 			resp.Status = "ERROR: missing username an/or password"

@@ -54,8 +54,8 @@ type bootstrapRequest struct {
 }
 
 type bootstrapResponse struct {
-	Boostrapped bool   `json:"bootstrapped"`
-	Status      string `json:"status"`
+	Bootstrapped bool   `json:"bootstrapped"`
+	Status       string `json:"status"`
 }
 
 func main() {
@@ -114,7 +114,7 @@ func bootstrapHandler(ch chan config) http.Handler {
 		var resp bootstrapResponse
 
 		if req.Method == http.MethodGet {
-			resp.Boostrapped = bootstrapped
+			resp.Bootstrapped = bootstrapped
 			resp.Status = "OK"
 			js, err := json.Marshal(resp)
 			if err != nil {
@@ -152,6 +152,7 @@ func bootstrapHandler(ch chan config) http.Handler {
 			c.SpaceID = appEnv.SpaceID
 			ch <- c // Magic
 			bootstrapped = true
+			resp.Bootstrapped = bootstrapped
 			resp.Status = "OK"
 		} else {
 			resp.Status = "ERROR: missing username an/or password"

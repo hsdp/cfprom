@@ -45,7 +45,7 @@ The following environment variables are used
 | PASSWORD | N | The cfprom password |
 
 ## Authentication
-When `PASSWORD` environment variables are set both the `/metrics` and `/bootstrap` endpoint will be protected by Basic Authentication. The username is always `cfprom`
+When the `PASSWORD` environment is set both the `/metrics` and `/bootstrap` endpoint will be protected by Basic Authentication. The username is always `cfprom`
 
 ## Bootstrapping
 If you do not wish to add `CF_USERNAME` and `CF_PASSWORD` to the environment you can bootstrap cfprom by posting the username and password to the `/bootstrap` endpoint:

@@ -42,10 +42,13 @@ The following environment variables are used
 |----------|-----------|-------------|
 | CF\_USERNAME | N     | The CF login to use |
 | CF\_PASSWORD | N     | The CF password to use |
+| PASSWORD | N | The cfprom password |
+
+## Authentication
+When `PASSWORD` environment variables are set both the `/metrics` and `/bootstrap` endpoint will be protected by Basic Authentication. The username is always `cfprom`
 
 ## Bootstrapping
-
-If you do not wish to add `CF_USERNAME` and/or `CF_PASSWORD` to the environment you can bootstrap cfprom by posting the username and password to the `/bootstrap` endpoint:
+If you do not wish to add `CF_USERNAME` and `CF_PASSWORD` to the environment you can bootstrap cfprom by posting the username and password to the `/bootstrap` endpoint:
 
 ```
 curl -X POST https://cfprom.<your_cf_domain>/bootstrap -d '{"username":"admin","password":"SuperS3cret"}'

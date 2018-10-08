@@ -84,13 +84,31 @@ func main() {
 
 	ch <- c // Initial config
 
-	http.Handle("/metrics", promhttp.Handler())
-	http.Handle("/bootstrap", bootstrapHandler(ch))
+	http.Handle("/metrics", basicAuth(promhttp.Handler()))
+	http.Handle("/bootstrap", basicAuth(bootstrapHandler(ch)))
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
 func (r *bootstrapRequest) valid() bool {
 	return r.Username != "" && r.Password != ""
+}
+
+func basicAuth(h http.Handler) http.Handler {
+	password := os.Getenv("PASSWORD")
+	if password == "" { // Noop
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		})
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if u, p, ok := r.BasicAuth(); ok {
+			if u == "cfprom" && p == password {
+				h.ServeHTTP(w, r)
+				return
+			}
+		}
+		http.Error(w, "access denied", http.StatusUnauthorized)
+	})
 }
 
 func getCFAPI() string {

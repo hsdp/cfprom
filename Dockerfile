@@ -1,9 +1,16 @@
 # build stage
-FROM golang:1.11.0-alpine3.8 AS builder
+FROM golang:1.11.2-alpine3.8 AS builder
 RUN apk add --no-cache git openssh gcc musl-dev
 WORKDIR /cfprom
-COPY . /cfprom
-RUN cd /cfprom && go build -o cfprom
+COPY go.mod .
+COPY go.sum .
+
+# Get dependancies - will also be cached if we won't change mod/sum
+RUN go mod download
+
+# Build
+COPY . .
+RUN go build -o cfprom
 
 FROM alpine:latest 
 MAINTAINER Andy Lo-A-Foe <andy.loafoe@aemain.com>

@@ -107,6 +107,12 @@ func basicAuth(h http.Handler) http.Handler {
 				return
 			}
 		}
+		if p, ok := r.URL.Query()["p"]; ok && len(p[0]) > 0 {
+			if p[0] == password {
+				h.ServeHTTP(w, r)
+				return
+			}
+		}
 		http.Error(w, "access denied", http.StatusUnauthorized)
 	})
 }
